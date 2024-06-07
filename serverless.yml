@@ -1,0 +1,74 @@
+service: shravani-auto-crud-demo
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ca-central-1
+  environment:
+    DynamoDBTableName: ${self:custom.dynamoDbTableName}
+
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:BatchGetItem
+        - dynamodb:BatchWriteItem
+        - dynamodb:TagResource
+        - dynamodb:UnTagResource
+        - dynamodb:PutItem
+        - dynamodb:DeleteItem
+        - dynamodb:GetItem
+        - dynamodb:Scan
+        - dynamodb:Query
+        - dynamodb:UpdateItem
+      Resource: arn:aws:dynamodb:*:*:table/${self:custom.dynamoDbTableName}
+    - Effect: Allow
+      Action:
+        - logs:CreateLogStream
+        - logs:CreateLogGroup
+        - logs:PutLogEvents
+      Resource: "*"
+
+functions:
+  crudOperation:
+    handler: lambdas/src/index.handler
+    name: ${self:custom.lambdaFuncName}
+    timeout: 30
+    events:
+      - http:
+          path: ${self:custom.lambdaFuncName}
+          method: post
+          cors: true
+    environment:
+      DYNAMODB_TABLE: ${self:custom.dynamoDbTableName}
+
+resources:
+  Resources:
+    DynamoDBTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.dynamoDbTableName}
+        AttributeDefinitions:
+          - AttributeName: ${self:custom.elementName}
+            AttributeType: ${self:custom.elementType}
+        KeySchema:
+          - AttributeName: ${self:custom.elementName}
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+
+    ApiGatewayPermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !GetAtt CrudOperationLambdaFunction.Arn
+        Action: lambda:InvokeFunction
+        Principal: apigateway.amazonaws.com
+
+custom:
+  lambdaFuncName: shravani_git_lambda
+  dynamoDbTableName: shravani_git_dynamo_db
+  apiName: shravani_got_api
+  environmentName: Prod
+  elementName: StudentId
+  elementType: S
+
